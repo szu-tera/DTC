@@ -1,0 +1,18 @@
+# Pinned to a CUDA 12.8 stack that matches common L40 drivers.
+# Unpinned vllm>=0.5 resolves to a much newer release and backtracks
+# through multi-gigabyte CUDA 13 wheels.
+vllm==0.14.0
+torch==2.9.1
+transformers>=4.40,<5
+numpy
+scikit-learn
+tqdm
+datasets
+sympy>=1.12
+antlr4-python3-runtime==4.11.1
+word2number
+Pebble
+timeout-decorator
+regex
+python-dateutil
+openai>=1.0.0

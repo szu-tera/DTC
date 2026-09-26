@@ -1,0 +1,11 @@
+name: dtc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+      - --trusted-host pypi.tuna.tsinghua.edu.cn
+      - -r requirements.txt
