@@ -17,7 +17,7 @@ def load_hf(
     model = AutoModelForCausalLM.from_pretrained(
         path,
         trust_remote_code=True,
-        torch_dtype=tp,
+        dtype=tp,
         device_map=device_map,
         low_cpu_mem_usage=True,
     )

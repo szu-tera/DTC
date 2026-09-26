@@ -33,10 +33,7 @@ from dtc.config import (  # noqa: E402
     resolve_model_path,
     whitebox_theta,
 )
-from dtc.divergence import (  # noqa: E402
-    dual_token_divergence_metrics,
-    sequential_dual_metrics,
-)
+from dtc.divergence import dual_token_divergence_metrics  # noqa: E402
 from dtc.io_utils import dump_jsonl, load_jsonl  # noqa: E402
 from dtc.models import load_hf_on_cuda, release_cuda  # noqa: E402
 from dtc.resolve_ids import resolve_ids  # noqa: E402
@@ -75,6 +72,31 @@ def _boxed_indices(tok, completion_ids, generate: str):
     return boxed_answer_positions_in_completion(tok, surface)
 
 
+def _load_pair(ref_path: str, other_path: str, dtype: str, n_vis: int):
+    """Load each model once. Two GPUs: one card each. One GPU: both stay resident."""
+    if n_vis >= 2:
+        m_ref, _ = load_hf_on_cuda(ref_path, dtype=dtype, cuda_index=0)
+        m_other, _ = load_hf_on_cuda(other_path, dtype=dtype, cuda_index=1)
+    else:
+        m_ref, _ = load_hf_on_cuda(ref_path, dtype=dtype, cuda_index=0)
+        m_other, _ = load_hf_on_cuda(other_path, dtype=dtype, cuda_index=0)
+    return m_ref, m_other
+
+
+def _score_loaded(rows, tok, m_ref, m_other, *, desc: str):
+    for row in tqdm(rows, desc=desc):
+        prompt_ids, completion_ids = resolve_ids(row, tok)
+        metrics = dual_token_divergence_metrics(
+            m_ref,
+            m_other,
+            prompt_token_ids=prompt_ids,
+            completion_token_ids=completion_ids,
+            tokenizer=tok,
+        )
+        boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
+        _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
+
+
 def run_whitebox(rows, args, ref_path: str, other_path: str):
     import torch
 
@@ -84,40 +106,10 @@ def run_whitebox(rows, args, ref_path: str, other_path: str):
     tok = __import__("transformers").AutoTokenizer.from_pretrained(
         os.path.abspath(ref_path), trust_remote_code=True
     )
-
-    if n_vis >= 2:
-        m_ref, _ = load_hf_on_cuda(ref_path, dtype=args.dtype, cuda_index=0)
-        m_other, _ = load_hf_on_cuda(other_path, dtype=args.dtype, cuda_index=1)
-        for row in tqdm(rows, desc="DTC whitebox"):
-            prompt_ids, completion_ids = resolve_ids(row, tok)
-            metrics = dual_token_divergence_metrics(
-                m_ref,
-                m_other,
-                prompt_token_ids=prompt_ids,
-                completion_token_ids=completion_ids,
-                tokenizer=tok,
-            )
-            boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
-            _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
-        del m_ref, m_other
-        release_cuda()
-    else:
-        chunk: list = []
-        id_pairs: list = []
-        for row in tqdm(rows, desc="Prep ids"):
-            prompt_ids, completion_ids = resolve_ids(row, tok)
-            chunk.append((prompt_ids, completion_ids))
-            id_pairs.append(row)
-        for i in range(0, len(chunk), 8):
-            sub = chunk[i : i + 8]
-            metrics_list = sequential_dual_metrics(
-                sub, ref_path, other_path, tok, args.dtype
-            )
-            for row, (prompt_ids, completion_ids), metrics in zip(
-                id_pairs[i : i + 8], sub, metrics_list
-            ):
-                boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
-                _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
+    m_ref, m_other = _load_pair(ref_path, other_path, args.dtype, n_vis)
+    _score_loaded(rows, tok, m_ref, m_other, desc="DTC whitebox")
+    del m_ref, m_other
+    release_cuda()
 
 
 def run_blackbox(rows, args, big_path: str, small_path: str, tok_path: str):
@@ -128,36 +120,12 @@ def run_blackbox(rows, args, big_path: str, small_path: str, tok_path: str):
     tok = __import__("transformers").AutoTokenizer.from_pretrained(
         os.path.abspath(tok_path), trust_remote_code=True
     )
-    ref_path, other_path = big_path, small_path
-
-    if n_vis >= 2:
-        m_ref, _ = load_hf_on_cuda(ref_path, dtype=args.dtype, cuda_index=0)
-        m_other, _ = load_hf_on_cuda(other_path, dtype=args.dtype, cuda_index=1)
-        for row in tqdm(rows, desc="DTC blackbox"):
-            prompt_ids, completion_ids = resolve_ids(row, tok)
-            metrics = dual_token_divergence_metrics(
-                m_ref,
-                m_other,
-                prompt_token_ids=prompt_ids,
-                completion_token_ids=completion_ids,
-                tokenizer=tok,
-            )
-            boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
-            _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
-            row["dtc_prob_key"] = "prob_ref"
-        del m_ref, m_other
-        release_cuda()
-    else:
-        for i in range(0, len(rows), 8):
-            sub_rows = rows[i : i + 8]
-            chunk = [resolve_ids(r, tok) for r in sub_rows]
-            metrics_list = sequential_dual_metrics(
-                chunk, ref_path, other_path, tok, args.dtype
-            )
-            for row, (prompt_ids, completion_ids), metrics in zip(sub_rows, chunk, metrics_list):
-                boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
-                _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
-                row["dtc_prob_key"] = "prob_ref"
+    m_ref, m_other = _load_pair(big_path, small_path, args.dtype, n_vis)
+    _score_loaded(rows, tok, m_ref, m_other, desc="DTC blackbox")
+    for row in rows:
+        row["dtc_prob_key"] = "prob_ref"
+    del m_ref, m_other
+    release_cuda()
 
 
 def main():

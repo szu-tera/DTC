@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import gc
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn.functional as F
@@ -127,50 +126,3 @@ def dual_metrics_from_logits(
         del lr, lo, p_ref, p_other, m, js, prob_ref, prob_other
 
     return {"per_token": per_token}
-
-
-@torch.inference_mode()
-def sequential_dual_metrics(
-    rows_chunk: List[Tuple[List[int], List[int]]],
-    ref_path: str,
-    other_path: str,
-    tok,
-    dtype: str,
-) -> List[Dict]:
-    """Load ref, cache logits on CPU; load other; compute JS on GPU."""
-    from dtc.models import load_hf, release_cuda
-
-    m_ref, _ = load_hf(ref_path, dtype=dtype, device_map="auto")
-    ref_logits: List[torch.Tensor] = []
-    for prompt_ids, completion_ids in rows_chunk:
-        ref_logits.append(
-            forward_completion_logits(
-                m_ref,
-                prompt_token_ids=prompt_ids,
-                completion_token_ids=completion_ids,
-            ).detach().cpu()
-        )
-    del m_ref
-    release_cuda()
-
-    m_other, _ = load_hf(other_path, dtype=dtype, device_map="auto")
-    out: List[Dict] = []
-    dev = torch.device("cuda", torch.cuda.current_device()) if torch.cuda.is_available() else torch.device("cpu")
-    for (prompt_ids, completion_ids), lr_cpu in zip(rows_chunk, ref_logits):
-        lo = forward_completion_logits(
-            m_other,
-            prompt_token_ids=prompt_ids,
-            completion_token_ids=completion_ids,
-        )
-        metrics = dual_metrics_from_logits(
-            lr_cpu,
-            lo,
-            completion_token_ids=completion_ids,
-            tokenizer=tok,
-            compute_device=dev,
-        )
-        out.append(metrics)
-        del lo
-    del m_other
-    release_cuda()
-    return out

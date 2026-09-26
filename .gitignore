@@ -11,3 +11,4 @@ secrets/
 *.key
 .env
 .DS_Store
+condaenv.*.requirements.txt

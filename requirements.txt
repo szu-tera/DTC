@@ -16,3 +16,4 @@ timeout-decorator
 regex
 python-dateutil
 openai>=1.0.0
+accelerate>=0.30.0
