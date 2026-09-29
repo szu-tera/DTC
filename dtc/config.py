@@ -23,6 +23,18 @@ SYSTEM_PROMPT = (
 WHITE_BOX_DATASETS = ("math500", "amc23", "aime24", "aime25")
 BLACK_BOX_DATASETS = ("aime24", "aime25", "hmmt_25", "hmmt_feb_2026")
 
+VERBALIZED_METHODS = (
+    "verbalized_confidence",
+    "verbalized_topk",
+    "verbalized_distribution",
+)
+
+
+def verbalized_sample_path(method: str, dataset: str, model: str) -> Path:
+    if method not in VERBALIZED_METHODS:
+        raise ValueError(f"未知 verbalized method: {method}")
+    return OUTPUTS_DIR / "sample" / f"on_{method}" / f"{dataset}_{_basename(model)}.jsonl"
+
 SAMPLES_PER_QUESTION = {
     "math500": 8,
     "amc23": 64,

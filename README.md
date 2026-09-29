@@ -15,7 +15,7 @@
 - **DTClin** — linear map from the divergent-token count *m*
 - **DTCprod** — trajectory-mean token probability raised to (*m* + *k*)
 
-This repository contains a **minimal** pipeline to reproduce **DTC-only** results from the main paper tables: white-box Table 1 (ECE) and black-box Default CoT (ECE / AUROC). Baselines (NSL, UQAC, PRM, verbalized prompts, etc.) are not included.
+The release provides scripts to sample reasoning trajectories, compute per-token JSD-based scores, and evaluate calibration (ECE / AUROC) on math benchmarks in white-box and black-box settings.
 
 ---
 
@@ -97,9 +97,33 @@ python score.py \
 python eval.py --input outputs/sample/aime24_deepseek-v3.2_scored.jsonl
 ```
 
-Black-box scoring uses **Qwen2.5-7B-Instruct** and **Qwen2.5-1.5B-Instruct** on the frozen trajectory (θ=**0.70**). The API generator is not loaded for confidence.
+Black-box scoring pairs **Qwen2.5-7B-Instruct** with **Qwen2.5-1.5B-Instruct** on the frozen trajectory (θ=**0.70**). Local generators use `--backend vllm` with the same `score.py` / `eval.py` flow.
 
-For local black-box generators (e.g. Qwen3-30B-A3B-Instruct-2507), use `--backend vllm` and the same `score.py` / `eval.py` steps.
+### 4. Black-box on verbalized CoT (same trajectory, DTC score)
+
+Three verbalized protocols (`verbalized_confidence`, `verbalized_topk`, `verbalized_distribution`):
+
+```bash
+python verbalized_sample.py \
+  --method verbalized_confidence \
+  --model Qwen3-30B-A3B-Instruct-2507 \
+  --dataset aime24 \
+  --cuda 0 \
+  --overwrite
+
+python score.py \
+  --input outputs/sample/on_verbalized_confidence/aime24_Qwen3-30B-A3B-Instruct-2507.jsonl \
+  --setting blackbox \
+  --big Qwen2.5-7B-Instruct \
+  --small Qwen2.5-1.5B-Instruct \
+  --tokenizer-model Qwen3-30B-A3B-Instruct-2507 \
+  --cuda 0,1 \
+  --overwrite
+
+python eval.py --input outputs/sample/on_verbalized_confidence/aime24_Qwen3-30B-A3B-Instruct-2507_scored.jsonl
+```
+
+Use `--tokenizer-model` with a local instruct checkpoint when the generator is API-hosted; otherwise scoring uses the instruct path on each row when present.
 
 ---
 
@@ -108,12 +132,11 @@ For local black-box generators (e.g. Qwen3-30B-A3B-Instruct-2507), use `--backen
 | Step | Script | Role |
 |------|--------|------|
 | Sample | `sample.py` | Zero-shot CoT generation + math grading |
+| Verbalized sample | `verbalized_sample.py` | Verbalized black-box trajectories + parsed confidence |
 | Score | `score.py` | Per-token JSD and probabilities (teacher forcing) |
 | Eval | `eval.py` | Acc, DTClin / DTCprod ECE & AUROC |
 
-Benchmark data and graders live under `evaluation/Qwen2.5-Math/evaluation/` (from [Qwen2.5-Math](https://github.com/QwenLM/Qwen2.5-Math)). `evaluation/manual_eval/` is included for reference only.
-
-Hyperparameters (decoding, samples per question, θ by model family) are centralized in `dtc/config.py`.
+Benchmark data and graders live under `evaluation/Qwen2.5-Math/evaluation/` (from [Qwen2.5-Math](https://github.com/QwenLM/Qwen2.5-Math)). Decoding, sample counts, and θ by model family are in `dtc/config.py`.
 
 ---
 
@@ -134,5 +157,3 @@ Hyperparameters (decoding, samples per question, θ by model family) are central
   year={2027}
 }
 ```
-
-Results depend on sampling randomness; with the same protocol (balanced UQ eval, truncated / no-answer filtering, θ and *n*, *k* as above), metrics should be close to the paper. Exact reproduction of every table cell is not guaranteed without matching hardware and full-scale runs.

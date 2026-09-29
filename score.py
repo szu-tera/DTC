@@ -37,6 +37,10 @@ from dtc.divergence import dual_token_divergence_metrics  # noqa: E402
 from dtc.io_utils import dump_jsonl, load_jsonl  # noqa: E402
 from dtc.models import load_hf_on_cuda, release_cuda  # noqa: E402
 from dtc.resolve_ids import resolve_ids  # noqa: E402
+from dtc.verbalized_spans import (  # noqa: E402
+    resolve_verbalized_selected_answer_from_row,
+    verbalized_reason_ans_token_indices,
+)
 
 
 def parse_args():
@@ -56,20 +60,33 @@ def parse_args():
     return p.parse_args()
 
 
-def _attach_dtc_block(row, metrics, *, boxed_idx):
+def _attach_dtc_block(row, metrics, *, boxed_idx, span_source: str):
     row["dtc"] = {
         "per_token": metrics.get("per_token", []),
         "boxed_token_indices": boxed_idx,
         "log_base": 2,
     }
+    row["dtc_answer_span_source"] = span_source
 
 
-def _boxed_indices(tok, completion_ids, generate: str):
+def _completion_surface(tok, completion_ids, generate: str) -> str:
     if completion_ids:
-        surface = tok.decode(list(completion_ids), skip_special_tokens=True)
-    else:
-        surface = generate or ""
-    return boxed_answer_positions_in_completion(tok, surface)
+        return tok.decode(list(completion_ids), skip_special_tokens=True)
+    return generate or ""
+
+
+def _answer_span_indices(row, tok, completion_ids, generate: str):
+    surface = _completion_surface(tok, completion_ids, generate)
+    method, selected = resolve_verbalized_selected_answer_from_row(row)
+    if method:
+        _reason_idx, ans_idx = verbalized_reason_ans_token_indices(
+            tok,
+            surface,
+            method=method,
+            selected_answer=selected,
+        )
+        return ans_idx, "verbalized_json"
+    return boxed_answer_positions_in_completion(tok, surface), "boxed"
 
 
 def _load_pair(ref_path: str, other_path: str, dtype: str, n_vis: int):
@@ -93,8 +110,10 @@ def _score_loaded(rows, tok, m_ref, m_other, *, desc: str):
             completion_token_ids=completion_ids,
             tokenizer=tok,
         )
-        boxed_idx = _boxed_indices(tok, completion_ids, row.get("generate") or "")
-        _attach_dtc_block(row, metrics, boxed_idx=boxed_idx)
+        boxed_idx, span_source = _answer_span_indices(
+            row, tok, completion_ids, row.get("generate") or ""
+        )
+        _attach_dtc_block(row, metrics, boxed_idx=boxed_idx, span_source=span_source)
 
 
 def run_whitebox(rows, args, ref_path: str, other_path: str):
@@ -156,7 +175,14 @@ def main():
     else:
         big = resolve_model_path(args.big or "Qwen2.5-7B-Instruct")
         small = resolve_model_path(args.small or "Qwen2.5-1.5B-Instruct")
-        tok_src = resolve_model_path(args.tokenizer_model or big)
+        tok_default = big
+        if not args.tokenizer_model and rows:
+            instruct = rows[0].get("instruct_model_path")
+            if isinstance(instruct, str) and instruct.strip():
+                p = Path(instruct)
+                if p.is_dir() or p.exists():
+                    tok_default = instruct
+        tok_src = resolve_model_path(args.tokenizer_model or tok_default)
         run_blackbox(rows, args, big, small, tok_src)
         for row in rows:
             row["dtc_setting"] = "blackbox"
