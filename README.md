@@ -2,9 +2,8 @@
 
 # Probability is Not Enough: Exploring and Counting Divergent Tokens for Reasoning Uncertainty Quantification in LLMs
 
-<!-- Replace XXXX.XXXXX with the arXiv id after the paper is online. -->
-[![Paper](https://img.shields.io/badge/paper-A42C25?style=for-the-badge&logo=arxiv&logoColor=white)](https://arxiv.org/abs/XXXX.XXXXX)
-[![Github](https://img.shields.io/badge/code-000000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Liflysheep/DTC)
+[![Paper](https://img.shields.io/badge/paper-A42C25?style=for-the-badge&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2609.38070)
+[![Github](https://img.shields.io/badge/code-000000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Liflysheep/DTC-Open)
 
 <div align="center" style="font-family: Arial, sans-serif;">
   <p>
@@ -26,7 +25,7 @@
 
 ## 🎉News
 
-- **[2026/09]** We release the code for DTC. The arXiv link above will be updated once the paper is online.
+- **[2026/09]** Paper and code are available on [arXiv](https://arxiv.org/abs/2609.38070) and [GitHub](https://github.com/Liflysheep/DTC-Open).
 
 ---
 
@@ -76,8 +75,8 @@ Across multiple model families and six math benchmarks, DTC improves calibration
 Clone the repository and create the environment. CUDA drivers compatible with the pinned `torch` / `vllm` wheels are assumed on the host.
 
 ```shell
-git clone https://github.com/Liflysheep/DTC.git
-cd DTC
+git clone https://github.com/Liflysheep/DTC-Open.git
+cd DTC-Open
 conda env create -f environment.yml
 conda activate dtc
 pip install -e evaluation/Qwen2.5-Math/evaluation/latex2sympy
@@ -196,7 +195,7 @@ If you find this work useful for your research, please consider citing our paper
 @article{li2026probability,
   title={Probability is Not Enough: Exploring and Counting Divergent Tokens for Reasoning Uncertainty Quantification in LLMs},
   author={Li, Feiyang and Liu, Shengjing and Zhan, Qi and Cheng, Sijie and Wang, Weiqing and Chen, Hongwen and Yang, Yuxuan and Wang, Wen and Wang, Yile and Huang, Hui},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
+  journal={arXiv preprint arXiv:2609.38070},
   year={2026}
 }
 ```
