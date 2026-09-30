@@ -3,7 +3,7 @@
 # Probability is Not Enough: Exploring and Counting Divergent Tokens for Reasoning Uncertainty Quantification in LLMs
 
 [![Paper](https://img.shields.io/badge/paper-A42C25?style=for-the-badge&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2609.38070)
-[![Github](https://img.shields.io/badge/code-000000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Liflysheep/DTC-Open)
+[![Github](https://img.shields.io/badge/code-000000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/szu-tera/DTC)
 
 <div align="center" style="font-family: Arial, sans-serif;">
   <p>
@@ -25,7 +25,7 @@
 
 ## 🎉News
 
-- **[2026/09]** Paper and code are available on [arXiv](https://arxiv.org/abs/2609.38070) and [GitHub](https://github.com/Liflysheep/DTC-Open).
+- **[2026/09]** Paper and code are available on [arXiv](https://arxiv.org/abs/2609.38070) and [GitHub](https://github.com/szu-tera/DTC).
 
 ---
 
@@ -75,8 +75,8 @@ Across multiple model families and six math benchmarks, DTC improves calibration
 Clone the repository and create the environment. CUDA drivers compatible with the pinned `torch` / `vllm` wheels are assumed on the host.
 
 ```shell
-git clone https://github.com/Liflysheep/DTC-Open.git
-cd DTC-Open
+git clone https://github.com/szu-tera/DTC.git
+cd DTC
 conda env create -f environment.yml
 conda activate dtc
 pip install -e evaluation/Qwen2.5-Math/evaluation/latex2sympy
