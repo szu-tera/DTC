@@ -32,7 +32,7 @@ VERBALIZED_METHODS = (
 
 def verbalized_sample_path(method: str, dataset: str, model: str) -> Path:
     if method not in VERBALIZED_METHODS:
-        raise ValueError(f"未知 verbalized method: {method}")
+        raise ValueError(f"Unknown verbalized method: {method}")
     return OUTPUTS_DIR / "sample" / f"on_{method}" / f"{dataset}_{_basename(model)}.jsonl"
 
 SAMPLES_PER_QUESTION = {

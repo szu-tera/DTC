@@ -497,7 +497,7 @@ def extract_theoremqa_answer(pred: str, answer_flag: bool = True):
 
 
 def _extract_boxed_content(pred_str: str) -> str:
-    """取出最后一个 \\boxed{...} 内的内容；无则返回空串。"""
+    """Return the contents of the last \\boxed{...}, or an empty string if none."""
     if "boxed" not in pred_str:
         return ""
     ans = pred_str.split("boxed")[-1]
@@ -522,7 +522,7 @@ def _extract_boxed_content(pred_str: str) -> str:
 
 
 def extract_gpqa_answer(pred_str: str) -> str:
-    """GPQA：从 \\boxed{(X)} / 文本中提取 A–D 选项字母。"""
+    """GPQA: extract an A-D choice letter from \\boxed{(X)} or the raw text."""
     pred_str = pred_str.replace("\u043a\u0438", "")
     boxed = _extract_boxed_content(pred_str)
     for chunk in (boxed, pred_str):
@@ -693,7 +693,7 @@ def parse_ground_truth(example: Dict[str, Any], data_name):
     ]:
         gt_cot, gt_ans = None, example["answer"]
     elif data_name in ["gpqa_diamond", "gpqa"]:
-        # jsonl: answer 为选项字母 A/B/C/D
+        # jsonl: answer is a choice letter A/B/C/D
         gt_cot, gt_ans = None, str(example["answer"]).strip().upper()
     elif data_name in ["zebralogic_sm", "zebralogic", "zebra_sm", "zebra_grid"] or str(
         data_name
@@ -706,14 +706,14 @@ def parse_ground_truth(example: Dict[str, Any], data_name):
     # post process
     gt_cot = str(gt_cot).strip()
     if data_name in ["gpqa_diamond", "gpqa"]:
-        # 保持纯选项字母，避免 strip_string 改写
+        # Keep a bare choice letter so strip_string does not rewrite it.
         gt_ans = str(gt_ans).strip().upper()
         if gt_ans and gt_ans[0] in "ABCDE":
             gt_ans = gt_ans[0]
     elif data_name in ["zebralogic_sm", "zebralogic", "zebra_sm", "zebra_grid"] or str(
         data_name
     ).startswith("zebralogic"):
-        # 保持规范化 JSON，勿 strip_string
+        # Keep the normalized JSON; do not run strip_string.
         gt_ans = str(gt_ans).strip()
     elif data_name not in STRIP_EXCEPTIONS:
         gt_ans = strip_string(gt_ans, skip_unit=data_name == "carp_en")
@@ -776,11 +776,11 @@ def parse_question(example, data_name):
         for key in options_dict:
             options.append(f"({key}) {options_dict[key]}")
         options = " ".join(options)
-        question = f"{example['question'].strip()}\n选项: {options}"
+        question = f"{example['question'].strip()}\nOptions: {options}"
     elif data_name in ["zebralogic_sm", "zebralogic", "zebra_sm", "zebra_grid"] or str(
         data_name
     ).startswith("zebralogic"):
-        # 已在 data_loader 写入完整 1-shot prompt；若缺失则现场拼
+        # data_loader already stores the full 1-shot prompt; build it here if missing.
         question = str(example.get("question") or "").strip()
         if not question:
             from BaseCal.src.sampling.zebra import build_user_prompt

@@ -1,12 +1,13 @@
 """
-用于在已有预测结果上计算 pass@k。
+Compute pass@k from existing predictions.
 
-输入格式：每行是一个样本的 JSON，对应字段包含：
-- 预测："pred"（list）或 "preds"（list）或 "prediction"/"output"（str/list）
-- 标准答案：可用字段 ["gt", "gt_ans", "answer", "label", "gold", "reference"]。
-    若未提供且传入 --data_name，会调用 parser.parse_ground_truth 从原始样本字段推导。
+Input format: one JSON object per line, with:
+- Predictions: "pred" (list), "preds" (list), or "prediction"/"output" (str/list)
+- Ground truth: one of ["gt", "gt_ans", "answer", "label", "gold", "reference"].
+    If those fields are missing and --data_name is set, parser.parse_ground_truth
+    derives the label from the raw sample fields.
 
-示例：
+Example:
         python pass_at_k.py \
                 --pred_file /path/to/preds.jsonl \
                 --k 1 5 10 \
@@ -62,7 +63,7 @@ def pick_gt(sample: Dict[str, Any], data_name: str | None) -> str:
 
 
 def normalize_pred(pred: str, data_name: str | None) -> str:
-    # 与项目 parser 的抽取逻辑保持一致，尽量提取最终答案
+    # Use the same extraction logic as the project parser to recover the final answer.
     return extract_answer(str(pred), data_name or "math")
 
 
@@ -80,7 +81,7 @@ def compute_scores(samples: List[Dict[str, Any]], data_name: str | None) -> List
 
 
 def pass_at_k_bootstrap(score_rows: List[List[bool]], k_list: List[int], runs: int, rng: np.random.Generator) -> Dict[int, Dict[str, float]]:
-    """对每个 k 做多次重采样求均值和标准差。"""
+    """Bootstrap the mean and standard deviation of pass@k over repeated resamples."""
     res: Dict[int, Dict[str, float]] = {}
     total = len(score_rows)
     if total == 0:
@@ -105,10 +106,10 @@ def pass_at_k_bootstrap(score_rows: List[List[bool]], k_list: List[int], runs: i
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pred_file", type=str, required=True, help="Path to predictions JSONL")
-    parser.add_argument("--k", type=int, nargs="+", default=[1], help="k 值列表，例如 --k 1 5 10")
-    parser.add_argument("--data_name", type=str, default=None, help="数据集名；当文件中没有 gt 时用于解析标准答案")
-    parser.add_argument("--runs", type=int, default=3, help="重采样次数，默认 3 次")
-    parser.add_argument("--seed", type=int, default=None, help="随机种子，可选")
+    parser.add_argument("--k", type=int, nargs="+", default=[1], help="List of k values, e.g. --k 1 5 10")
+    parser.add_argument("--data_name", type=str, default=None, help="Dataset name; used to parse the ground truth when the file has no gt field")
+    parser.add_argument("--runs", type=int, default=3, help="Number of bootstrap resamples (default: 3)")
+    parser.add_argument("--seed", type=int, default=None, help="Optional random seed")
     args = parser.parse_args()
 
     pred_path = Path(args.pred_file)

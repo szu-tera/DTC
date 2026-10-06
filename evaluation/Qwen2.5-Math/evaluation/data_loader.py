@@ -8,7 +8,7 @@ from utils import load_jsonl, lower_keys
 
 def load_data(data_name, split, data_dir="./data"):
     data_file = f"{data_dir}/{data_name}/{split}.jsonl"
-    # hmmt_25 / hmmt_feb_2026 等：目录下用同名 jsonl 代替 test.jsonl
+    # hmmt_25 / hmmt_feb_2026 and similar: fall back to a same-named jsonl when test.jsonl is absent
     if (
         data_name in ("hmmt_25", "hmmt_feb_2026")
         and split == "test"
@@ -28,7 +28,7 @@ def load_data(data_name, split, data_dir="./data"):
                 cache_dir=f"{data_dir}/temp",
             )
         elif data_name == "math500":
-            # 只取 math 测试集前 500 条，避免默认跑完整 5k
+            # Use only the first 500 math test items instead of the full 5k set
             dataset = load_dataset(
                 "competition_math",
                 split="test[:500]" if split == "test" else split,
@@ -85,7 +85,7 @@ def load_data(data_name, split, data_dir="./data"):
         elif data_name == "carp_en":
             dataset = load_jsonl(f"{data_dir}/carp_en/test.jsonl")
         elif data_name in ("aime25", "aime26"):
-            # math-ai/aime25、math-ai/aime26：字段 problem / answer / id
+            # math-ai/aime25 and math-ai/aime26: fields are problem / answer / id
             dataset = load_dataset(
                 f"math-ai/{data_name}",
                 split=split,
@@ -102,10 +102,10 @@ def load_data(data_name, split, data_dir="./data"):
                 ]
                 dataset = Dataset.from_list(examples)
             else:
-                raise FileNotFoundError(f"gpqa_diamond 需 {parquet_path} 或 {data_file}")
+                raise FileNotFoundError(f"gpqa_diamond requires {parquet_path} or {data_file}")
         elif data_name in ("zebralogic_sm", "zebralogic", "zebra_sm", "zebra_grid"):
-            # ZebraLogic grid_mode；公开 allenai 集 solution 已打码，改用 WildEval（含答案）
-            # zebralogic_sm / zebra_sm / zebralogic 默认 Small+Medium；全量用 zebra_grid
+            # ZebraLogic grid_mode. The public allenai release masks solutions, so use WildEval (answers included).
+            # zebralogic_sm / zebra_sm / zebralogic default to Small+Medium; zebra_grid is the full set.
             from BaseCal.src.sampling.zebra import (  # type: ignore
                 build_user_prompt,
                 filter_sm_examples,
@@ -128,14 +128,14 @@ def load_data(data_name, split, data_dir="./data"):
                 if isinstance(sol, str):
                     sol = json.loads(sol)
                     ex["solution"] = sol
-                # answer = 规范化 House 表 JSON，供 puzzle 二值判分
+                # answer = normalized house-table JSON for binary puzzle grading
                 ex["answer"] = gold_solution_json(ex)
-                # 校验：公开打码集全是 ___，拒绝写入坏缓存
+                # Reject a fully masked public release (every cell is ___) so it is not cached.
                 flat = [c for r in (sol or {}).get("rows", []) for c in r]
                 if flat and all(str(c).strip() == "___" for c in flat):
                     raise RuntimeError(
-                        "ZebraLogic solution 全为占位符 ___；请改用 "
-                        "WildEval/ZebraLogic 或申请 allenai/ZebraLogicBench-private"
+                        "ZebraLogic solutions are all placeholders ___; use "
+                        "WildEval/ZebraLogic or request allenai/ZebraLogicBench-private"
                     )
                 ex["question"] = build_user_prompt(ex.get("puzzle", ""), sol or {})
             if data_name != "zebra_grid":

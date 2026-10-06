@@ -99,7 +99,7 @@ def build_verbalized_user_prompt(method: str, question: str, *, top_k: int = DEF
         return PROMPT_VERBALIZED_DISTRIBUTION.format(
             question=q, each_answer_constraint=_MATH_EACH_ANSWER_CONSTRAINT
         )
-    raise ValueError(f"未知 verbalized method: {method}")
+    raise ValueError(f"Unknown verbalized method: {method}")
 
 
 def _parse_confidence_value(raw: Any) -> Optional[float]:
@@ -160,7 +160,7 @@ def _scan_json_values(text: str) -> List[Any]:
 def _extract_json_payload(text: str) -> Any:
     cleaned = strip_think_block(text or "").strip()
     if not cleaned:
-        raise ValueError("空生成文本")
+        raise ValueError("Empty generation text")
 
     cands = _scan_json_values(cleaned)
     if cands:
@@ -186,7 +186,7 @@ def _extract_json_payload(text: str) -> Any:
         if block_cands:
             return block_cands[-1]
 
-    raise ValueError("未找到可解析 JSON")
+    raise ValueError("No parseable JSON found")
 
 
 def selected_answer_as_pred(answer: str) -> str:
@@ -227,30 +227,30 @@ def parse_verbalized_output(
 
     if method == METHOD_VERBALIZED_CONFIDENCE:
         if not isinstance(payload, dict):
-            raise ValueError("verbalized_confidence 期望 JSON object")
+            raise ValueError("verbalized_confidence expects a JSON object")
         ans = _candidate_text(payload) or (
             str(payload["final_answer"]).strip() if payload.get("final_answer") is not None else None
         )
         score = _parse_confidence_value(payload.get("confidence"))
         if ans is None or score is None:
-            raise ValueError("verbalized_confidence 缺少 final_answer/confidence")
+            raise ValueError("verbalized_confidence is missing final_answer/confidence")
         out["answer"] = ans
         out[METRIC_SCORE] = score
         return out
 
     if method in (METHOD_VERBALIZED_TOPK, METHOD_VERBALIZED_DISTRIBUTION):
         if not isinstance(payload, list):
-            raise ValueError(f"{method} 期望 JSON array")
+            raise ValueError(f"{method} expects a JSON array")
         ans, score, cands = _pick_best_candidate(payload, allow_none_of_the_above=True)
         if method == METHOD_VERBALIZED_DISTRIBUTION and ans is not None and _NONE_OF_THE_ABOVE.match(ans):
             ans2, score2, _ = _pick_best_candidate(payload, allow_none_of_the_above=False)
             if ans2 is not None:
                 ans, score = ans2, score2
         if ans is None or score is None:
-            raise ValueError(f"{method} 无法从候选中选出有效答案/置信度")
+            raise ValueError(f"{method} could not select a valid answer/confidence from the candidates")
         out["answer"] = ans
         out[METRIC_SCORE] = score
         out["candidates"] = cands
         return out
 
-    raise ValueError(f"未知 verbalized method: {method}")
+    raise ValueError(f"Unknown verbalized method: {method}")

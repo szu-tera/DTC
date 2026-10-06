@@ -30,7 +30,7 @@ def load_jsonl(file: Union[str, Path]) -> Iterable[Any]:
 def save_jsonl(samples, save_path):
     # ensure path
     folder = os.path.dirname(save_path)
-    if folder:  # 只在 folder 非空时创建目录
+    if folder:  # create the directory only when folder is non-empty
         os.makedirs(folder, exist_ok=True)
 
     with open(save_path, "w", encoding="utf-8") as f:
